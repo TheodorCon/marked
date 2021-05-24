@@ -1,34 +1,31 @@
-const Lexer = require('./Lexer.js');
-const Parser = require('./Parser.js');
-const Tokenizer = require('./Tokenizer.js');
-const Renderer = require('./Renderer.js');
-const TextRenderer = require('./TextRenderer.js');
-const Slugger = require('./Slugger.js');
-const {
-  merge,
-  checkSanitizeDeprecation,
-  escape
-} = require('./helpers.js');
-const {
-  getDefaults,
-  changeDefaults,
-  defaults
-} = require('./defaults.js');
+const Lexer = require("./Lexer.js");
+const Parser = require("./Parser.js");
+const Tokenizer = require("./Tokenizer.js");
+const Renderer = require("./Renderer.js");
+const TextRenderer = require("./TextRenderer.js");
+const Slugger = require("./Slugger.js");
+const { merge, checkSanitizeDeprecation, escape } = require("./helpers.js");
+const { getDefaults, changeDefaults, defaults } = require("./defaults.js");
+const { getCounter } = require("./memoize.js");
 
 /**
  * Marked
  */
 function marked(src, opt, callback) {
+  console.log("instrumented");
   // throw error in case of non string input
-  if (typeof src === 'undefined' || src === null) {
-    throw new Error('marked(): input parameter is undefined or null');
+  if (typeof src === "undefined" || src === null) {
+    throw new Error("marked(): input parameter is undefined or null");
   }
-  if (typeof src !== 'string') {
-    throw new Error('marked(): input parameter is of type '
-      + Object.prototype.toString.call(src) + ', string expected');
+  if (typeof src !== "string") {
+    throw new Error(
+      "marked(): input parameter is of type " +
+        Object.prototype.toString.call(src) +
+        ", string expected"
+    );
   }
 
-  if (typeof opt === 'function') {
+  if (typeof opt === "function") {
     callback = opt;
     opt = null;
   }
@@ -46,7 +43,7 @@ function marked(src, opt, callback) {
       return callback(e);
     }
 
-    const done = function(err) {
+    const done = function (err) {
       let out;
 
       if (!err) {
@@ -62,9 +59,7 @@ function marked(src, opt, callback) {
 
       opt.highlight = highlight;
 
-      return err
-        ? callback(err)
-        : callback(null, out);
+      return err ? callback(err) : callback(null, out);
     };
 
     if (!highlight || highlight.length < 3) {
@@ -76,11 +71,11 @@ function marked(src, opt, callback) {
     if (!tokens.length) return done();
 
     let pending = 0;
-    marked.walkTokens(tokens, function(token) {
-      if (token.type === 'code') {
+    marked.walkTokens(tokens, function (token) {
+      if (token.type === "code") {
         pending++;
         setTimeout(() => {
-          highlight(token.text, token.lang, function(err, code) {
+          highlight(token.text, token.lang, function (err, code) {
             if (err) {
               return done(err);
             }
@@ -110,13 +105,18 @@ function marked(src, opt, callback) {
     if (opt.walkTokens) {
       marked.walkTokens(tokens, opt.walkTokens);
     }
-    return Parser.parse(tokens, opt);
+    const result = Parser.parse(tokens, opt);
+    console.log("memoizations:", getCounter());
+
+    return result;
   } catch (e) {
-    e.message += '\nPlease report this to https://github.com/markedjs/marked.';
+    e.message += "\nPlease report this to https://github.com/markedjs/marked.";
     if (opt.silent) {
-      return '<p>An error occurred:</p><pre>'
-        + escape(e.message + '', true)
-        + '</pre>';
+      return (
+        "<p>An error occurred:</p><pre>" +
+        escape(e.message + "", true) +
+        "</pre>"
+      );
     }
     throw e;
   }
@@ -126,8 +126,7 @@ function marked(src, opt, callback) {
  * Options
  */
 
-marked.options =
-marked.setOptions = function(opt) {
+marked.options = marked.setOptions = function (opt) {
   merge(marked.defaults, opt);
   changeDefaults(marked.defaults);
   return marked;
@@ -141,7 +140,7 @@ marked.defaults = defaults;
  * Use Extension
  */
 
-marked.use = function(extension) {
+marked.use = function (extension) {
   const opts = merge({}, extension);
   if (extension.renderer) {
     const renderer = marked.defaults.renderer || new Renderer();
@@ -187,11 +186,11 @@ marked.use = function(extension) {
  * Run callback for every token
  */
 
-marked.walkTokens = function(tokens, callback) {
+marked.walkTokens = function (tokens, callback) {
   for (const token of tokens) {
     callback(token);
     switch (token.type) {
-      case 'table': {
+      case "table": {
         for (const cell of token.tokens.header) {
           marked.walkTokens(cell, callback);
         }
@@ -202,7 +201,7 @@ marked.walkTokens = function(tokens, callback) {
         }
         break;
       }
-      case 'list': {
+      case "list": {
         marked.walkTokens(token.items, callback);
         break;
       }
@@ -218,14 +217,19 @@ marked.walkTokens = function(tokens, callback) {
 /**
  * Parse Inline
  */
-marked.parseInline = function(src, opt) {
+marked.parseInline = function (src, opt) {
   // throw error in case of non string input
-  if (typeof src === 'undefined' || src === null) {
-    throw new Error('marked.parseInline(): input parameter is undefined or null');
+  if (typeof src === "undefined" || src === null) {
+    throw new Error(
+      "marked.parseInline(): input parameter is undefined or null"
+    );
   }
-  if (typeof src !== 'string') {
-    throw new Error('marked.parseInline(): input parameter is of type '
-      + Object.prototype.toString.call(src) + ', string expected');
+  if (typeof src !== "string") {
+    throw new Error(
+      "marked.parseInline(): input parameter is of type " +
+        Object.prototype.toString.call(src) +
+        ", string expected"
+    );
   }
 
   opt = merge({}, marked.defaults, opt || {});
@@ -238,11 +242,13 @@ marked.parseInline = function(src, opt) {
     }
     return Parser.parseInline(tokens, opt);
   } catch (e) {
-    e.message += '\nPlease report this to https://github.com/markedjs/marked.';
+    e.message += "\nPlease report this to https://github.com/markedjs/marked.";
     if (opt.silent) {
-      return '<p>An error occurred:</p><pre>'
-        + escape(e.message + '', true)
-        + '</pre>';
+      return (
+        "<p>An error occurred:</p><pre>" +
+        escape(e.message + "", true) +
+        "</pre>"
+      );
     }
     throw e;
   }

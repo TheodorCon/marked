@@ -1,36 +1,38 @@
-const { defaults } = require('./defaults.js');
+const { defaults } = require("./defaults.js");
 const {
   rtrim,
   splitCells,
   escape,
-  findClosingBracket
-} = require('./helpers.js');
+  findClosingBracket,
+} = require("./helpers.js");
 
-function outputLink(cap, link, raw) {
+const { memoize } = require("./memoize.js");
+
+const outputLink = memoize((cap, link, raw) => {
   const href = link.href;
   const title = link.title ? escape(link.title) : null;
-  const text = cap[1].replace(/\\([\[\]])/g, '$1');
+  const text = cap[1].replace(/\\([\[\]])/g, "$1");
 
-  if (cap[0].charAt(0) !== '!') {
+  if (cap[0].charAt(0) !== "!") {
     return {
-      type: 'link',
+      type: "link",
       raw,
       href,
       title,
-      text
+      text,
     };
   } else {
     return {
-      type: 'image',
+      type: "image",
       raw,
       href,
       title,
-      text: escape(text)
+      text: escape(text),
     };
   }
-}
+});
 
-function indentCodeCompensation(raw, text) {
+const indentCodeCompensation = memoize((raw, text) => {
   const matchIndentToCode = raw.match(/^(\s+)(?:```)/);
 
   if (matchIndentToCode === null) {
@@ -40,8 +42,8 @@ function indentCodeCompensation(raw, text) {
   const indentToCode = matchIndentToCode[1];
 
   return text
-    .split('\n')
-    .map(node => {
+    .split("\n")
+    .map((node) => {
       const matchIndentInNode = node.match(/^\s+/);
       if (matchIndentInNode === null) {
         return node;
@@ -55,9 +57,8 @@ function indentCodeCompensation(raw, text) {
 
       return node;
     })
-    .join('\n');
-}
-
+    .join("\n");
+});
 /**
  * Tokenizer
  */
@@ -71,25 +72,23 @@ module.exports = class Tokenizer {
     if (cap) {
       if (cap[0].length > 1) {
         return {
-          type: 'space',
-          raw: cap[0]
+          type: "space",
+          raw: cap[0],
         };
       }
-      return { raw: '\n' };
+      return { raw: "\n" };
     }
   }
 
   code(src) {
     const cap = this.rules.block.code.exec(src);
     if (cap) {
-      const text = cap[0].replace(/^ {1,4}/gm, '');
+      const text = cap[0].replace(/^ {1,4}/gm, "");
       return {
-        type: 'code',
+        type: "code",
         raw: cap[0],
-        codeBlockStyle: 'indented',
-        text: !this.options.pedantic
-          ? rtrim(text, '\n')
-          : text
+        codeBlockStyle: "indented",
+        text: !this.options.pedantic ? rtrim(text, "\n") : text,
       };
     }
   }
@@ -98,13 +97,13 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.fences.exec(src);
     if (cap) {
       const raw = cap[0];
-      const text = indentCodeCompensation(raw, cap[3] || '');
+      const text = indentCodeCompensation(raw, cap[3] || "");
 
       return {
-        type: 'code',
+        type: "code",
         raw,
         lang: cap[2] ? cap[2].trim() : cap[2],
-        text
+        text,
       };
     }
   }
@@ -116,7 +115,7 @@ module.exports = class Tokenizer {
 
       // remove trailing #s
       if (/#$/.test(text)) {
-        const trimmed = rtrim(text, '#');
+        const trimmed = rtrim(text, "#");
         if (this.options.pedantic) {
           text = trimmed.trim();
         } else if (!trimmed || / $/.test(trimmed)) {
@@ -126,10 +125,10 @@ module.exports = class Tokenizer {
       }
 
       return {
-        type: 'heading',
+        type: "heading",
         raw: cap[0],
         depth: cap[1].length,
-        text: text
+        text: text,
       };
     }
   }
@@ -138,11 +137,11 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.nptable.exec(src);
     if (cap) {
       const item = {
-        type: 'table',
-        header: splitCells(cap[1].replace(/^ *| *\| *$/g, '')),
-        align: cap[2].replace(/^ *|\| *$/g, '').split(/ *\| */),
-        cells: cap[3] ? cap[3].replace(/\n$/, '').split('\n') : [],
-        raw: cap[0]
+        type: "table",
+        header: splitCells(cap[1].replace(/^ *| *\| *$/g, "")),
+        align: cap[2].replace(/^ *|\| *$/g, "").split(/ *\| */),
+        cells: cap[3] ? cap[3].replace(/\n$/, "").split("\n") : [],
+        raw: cap[0],
       };
 
       if (item.header.length === item.align.length) {
@@ -150,11 +149,11 @@ module.exports = class Tokenizer {
         let i;
         for (i = 0; i < l; i++) {
           if (/^ *-+: *$/.test(item.align[i])) {
-            item.align[i] = 'right';
+            item.align[i] = "right";
           } else if (/^ *:-+: *$/.test(item.align[i])) {
-            item.align[i] = 'center';
+            item.align[i] = "center";
           } else if (/^ *:-+ *$/.test(item.align[i])) {
-            item.align[i] = 'left';
+            item.align[i] = "left";
           } else {
             item.align[i] = null;
           }
@@ -174,8 +173,8 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.hr.exec(src);
     if (cap) {
       return {
-        type: 'hr',
-        raw: cap[0]
+        type: "hr",
+        raw: cap[0],
       };
     }
   }
@@ -183,12 +182,12 @@ module.exports = class Tokenizer {
   blockquote(src) {
     const cap = this.rules.block.blockquote.exec(src);
     if (cap) {
-      const text = cap[0].replace(/^ *> ?/gm, '');
+      const text = cap[0].replace(/^ *> ?/gm, "");
 
       return {
-        type: 'blockquote',
+        type: "blockquote",
         raw: cap[0],
-        text
+        text,
       };
     }
   }
@@ -201,12 +200,12 @@ module.exports = class Tokenizer {
       const isordered = bull.length > 1;
 
       const list = {
-        type: 'list',
+        type: "list",
         raw,
         ordered: isordered,
-        start: isordered ? +bull.slice(0, -1) : '',
+        start: isordered ? +bull.slice(0, -1) : "",
         loose: false,
-        items: []
+        items: [],
       };
 
       // Get each top-level item.
@@ -231,9 +230,14 @@ module.exports = class Tokenizer {
 
         if (!this.options.pedantic) {
           // Determine if current item contains the end of the list
-          endMatch = item.match(new RegExp('\\n\\s*\\n {0,' + (bcurr[0].length - 1) + '}\\S'));
+          endMatch = item.match(
+            new RegExp("\\n\\s*\\n {0," + (bcurr[0].length - 1) + "}\\S")
+          );
           if (endMatch) {
-            addBack = item.length - endMatch.index + itemMatch.slice(i + 1).join('\n').length;
+            addBack =
+              item.length -
+              endMatch.index +
+              itemMatch.slice(i + 1).join("\n").length;
             list.raw = list.raw.substring(0, list.raw.length - addBack);
 
             item = item.substring(0, endMatch.index);
@@ -252,7 +256,17 @@ module.exports = class Tokenizer {
               : bnext[1].length > bcurr[1].length
           ) {
             // nested list or continuation
-            itemMatch.splice(i, 2, itemMatch[i] + (!this.options.pedantic && bnext[1].length < bcurr[0].length && !itemMatch[i].match(/\n$/) ? '' : '\n') + itemMatch[i + 1]);
+            itemMatch.splice(
+              i,
+              2,
+              itemMatch[i] +
+                (!this.options.pedantic &&
+                bnext[1].length < bcurr[0].length &&
+                !itemMatch[i].match(/\n$/)
+                  ? ""
+                  : "\n") +
+                itemMatch[i + 1]
+            );
             i--;
             l--;
             continue;
@@ -262,7 +276,7 @@ module.exports = class Tokenizer {
               ? bnext[2][bnext[2].length - 1] !== bull[bull.length - 1]
               : isordered === (bnext[2].length === 1)
           ) {
-            addBack = itemMatch.slice(i + 1).join('\n').length;
+            addBack = itemMatch.slice(i + 1).join("\n").length;
             list.raw = list.raw.substring(0, list.raw.length - addBack);
             i = l - 1;
           }
@@ -272,21 +286,21 @@ module.exports = class Tokenizer {
         // Remove the list item's bullet
         // so it is seen as the next token.
         space = item.length;
-        item = item.replace(/^ *([*+-]|\d+[.)]) ?/, '');
+        item = item.replace(/^ *([*+-]|\d+[.)]) ?/, "");
 
         // Outdent whatever the
         // list item contains. Hacky.
-        if (~item.indexOf('\n ')) {
+        if (~item.indexOf("\n ")) {
           space -= item.length;
           item = !this.options.pedantic
-            ? item.replace(new RegExp('^ {1,' + space + '}', 'gm'), '')
-            : item.replace(/^ {1,4}/gm, '');
+            ? item.replace(new RegExp("^ {1," + space + "}", "gm"), "")
+            : item.replace(/^ {1,4}/gm, "");
         }
 
         // trim item newlines at end
-        item = rtrim(item, '\n');
+        item = rtrim(item, "\n");
         if (i !== l - 1) {
-          raw = raw + '\n';
+          raw = raw + "\n";
         }
 
         // Determine whether item is loose or not.
@@ -294,7 +308,7 @@ module.exports = class Tokenizer {
         // for discount behavior.
         loose = next || /\n\n(?!\s*$)/.test(raw);
         if (i !== l - 1) {
-          next = raw.slice(-2) === '\n\n';
+          next = raw.slice(-2) === "\n\n";
           if (!loose) loose = next;
         }
 
@@ -307,18 +321,18 @@ module.exports = class Tokenizer {
           istask = /^\[[ xX]\] /.test(item);
           ischecked = undefined;
           if (istask) {
-            ischecked = item[1] !== ' ';
-            item = item.replace(/^\[[ xX]\] +/, '');
+            ischecked = item[1] !== " ";
+            item = item.replace(/^\[[ xX]\] +/, "");
           }
         }
 
         list.items.push({
-          type: 'list_item',
+          type: "list_item",
           raw,
           task: istask,
           checked: ischecked,
           loose: loose,
-          text: item
+          text: item,
         });
       }
 
@@ -330,13 +344,16 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.html.exec(src);
     if (cap) {
       return {
-        type: this.options.sanitize
-          ? 'paragraph'
-          : 'html',
+        type: this.options.sanitize ? "paragraph" : "html",
         raw: cap[0],
-        pre: !this.options.sanitizer
-          && (cap[1] === 'pre' || cap[1] === 'script' || cap[1] === 'style'),
-        text: this.options.sanitize ? (this.options.sanitizer ? this.options.sanitizer(cap[0]) : escape(cap[0])) : cap[0]
+        pre:
+          !this.options.sanitizer &&
+          (cap[1] === "pre" || cap[1] === "script" || cap[1] === "style"),
+        text: this.options.sanitize
+          ? this.options.sanitizer
+            ? this.options.sanitizer(cap[0])
+            : escape(cap[0])
+          : cap[0],
       };
     }
   }
@@ -345,13 +362,13 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.def.exec(src);
     if (cap) {
       if (cap[3]) cap[3] = cap[3].substring(1, cap[3].length - 1);
-      const tag = cap[1].toLowerCase().replace(/\s+/g, ' ');
+      const tag = cap[1].toLowerCase().replace(/\s+/g, " ");
       return {
-        type: 'def',
+        type: "def",
         tag,
         raw: cap[0],
         href: cap[2],
-        title: cap[3]
+        title: cap[3],
       };
     }
   }
@@ -360,10 +377,10 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.table.exec(src);
     if (cap) {
       const item = {
-        type: 'table',
-        header: splitCells(cap[1].replace(/^ *| *\| *$/g, '')),
-        align: cap[2].replace(/^ *|\| *$/g, '').split(/ *\| */),
-        cells: cap[3] ? cap[3].replace(/\n$/, '').split('\n') : []
+        type: "table",
+        header: splitCells(cap[1].replace(/^ *| *\| *$/g, "")),
+        align: cap[2].replace(/^ *|\| *$/g, "").split(/ *\| */),
+        cells: cap[3] ? cap[3].replace(/\n$/, "").split("\n") : [],
       };
 
       if (item.header.length === item.align.length) {
@@ -373,11 +390,11 @@ module.exports = class Tokenizer {
         let i;
         for (i = 0; i < l; i++) {
           if (/^ *-+: *$/.test(item.align[i])) {
-            item.align[i] = 'right';
+            item.align[i] = "right";
           } else if (/^ *:-+: *$/.test(item.align[i])) {
-            item.align[i] = 'center';
+            item.align[i] = "center";
           } else if (/^ *:-+ *$/.test(item.align[i])) {
-            item.align[i] = 'left';
+            item.align[i] = "left";
           } else {
             item.align[i] = null;
           }
@@ -386,8 +403,9 @@ module.exports = class Tokenizer {
         l = item.cells.length;
         for (i = 0; i < l; i++) {
           item.cells[i] = splitCells(
-            item.cells[i].replace(/^ *\| *| *\| *$/g, ''),
-            item.header.length);
+            item.cells[i].replace(/^ *\| *| *\| *$/g, ""),
+            item.header.length
+          );
         }
 
         return item;
@@ -399,10 +417,10 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.lheading.exec(src);
     if (cap) {
       return {
-        type: 'heading',
+        type: "heading",
         raw: cap[0],
-        depth: cap[2].charAt(0) === '=' ? 1 : 2,
-        text: cap[1]
+        depth: cap[2].charAt(0) === "=" ? 1 : 2,
+        text: cap[1],
       };
     }
   }
@@ -411,11 +429,12 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.paragraph.exec(src);
     if (cap) {
       return {
-        type: 'paragraph',
+        type: "paragraph",
         raw: cap[0],
-        text: cap[1].charAt(cap[1].length - 1) === '\n'
-          ? cap[1].slice(0, -1)
-          : cap[1]
+        text:
+          cap[1].charAt(cap[1].length - 1) === "\n"
+            ? cap[1].slice(0, -1)
+            : cap[1],
       };
     }
   }
@@ -424,9 +443,9 @@ module.exports = class Tokenizer {
     const cap = this.rules.block.text.exec(src);
     if (cap) {
       return {
-        type: 'text',
+        type: "text",
         raw: cap[0],
-        text: cap[0]
+        text: cap[0],
       };
     }
   }
@@ -435,9 +454,9 @@ module.exports = class Tokenizer {
     const cap = this.rules.inline.escape.exec(src);
     if (cap) {
       return {
-        type: 'escape',
+        type: "escape",
         raw: cap[0],
-        text: escape(cap[1])
+        text: escape(cap[1]),
       };
     }
   }
@@ -452,22 +471,23 @@ module.exports = class Tokenizer {
       }
       if (!inRawBlock && /^<(pre|code|kbd|script)(\s|>)/i.test(cap[0])) {
         inRawBlock = true;
-      } else if (inRawBlock && /^<\/(pre|code|kbd|script)(\s|>)/i.test(cap[0])) {
+      } else if (
+        inRawBlock &&
+        /^<\/(pre|code|kbd|script)(\s|>)/i.test(cap[0])
+      ) {
         inRawBlock = false;
       }
 
       return {
-        type: this.options.sanitize
-          ? 'text'
-          : 'html',
+        type: this.options.sanitize ? "text" : "html",
         raw: cap[0],
         inLink,
         inRawBlock,
         text: this.options.sanitize
-          ? (this.options.sanitizer
+          ? this.options.sanitizer
             ? this.options.sanitizer(cap[0])
-            : escape(cap[0]))
-          : cap[0]
+            : escape(cap[0])
+          : cap[0],
       };
     }
   }
@@ -478,28 +498,28 @@ module.exports = class Tokenizer {
       const trimmedUrl = cap[2].trim();
       if (!this.options.pedantic && /^</.test(trimmedUrl)) {
         // commonmark requires matching angle brackets
-        if (!(/>$/.test(trimmedUrl))) {
+        if (!/>$/.test(trimmedUrl)) {
           return;
         }
 
         // ending angle bracket cannot be escaped
-        const rtrimSlash = rtrim(trimmedUrl.slice(0, -1), '\\');
+        const rtrimSlash = rtrim(trimmedUrl.slice(0, -1), "\\");
         if ((trimmedUrl.length - rtrimSlash.length) % 2 === 0) {
           return;
         }
       } else {
         // find closing parenthesis
-        const lastParenIndex = findClosingBracket(cap[2], '()');
+        const lastParenIndex = findClosingBracket(cap[2], "()");
         if (lastParenIndex > -1) {
-          const start = cap[0].indexOf('!') === 0 ? 5 : 4;
+          const start = cap[0].indexOf("!") === 0 ? 5 : 4;
           const linkLen = start + cap[1].length + lastParenIndex;
           cap[2] = cap[2].substring(0, lastParenIndex);
           cap[0] = cap[0].substring(0, linkLen).trim();
-          cap[3] = '';
+          cap[3] = "";
         }
       }
       let href = cap[2];
-      let title = '';
+      let title = "";
       if (this.options.pedantic) {
         // split pedantic href and title
         const link = /^([^'"]*[^\s])\s+(['"])(.*)\2/.exec(href);
@@ -509,71 +529,92 @@ module.exports = class Tokenizer {
           title = link[3];
         }
       } else {
-        title = cap[3] ? cap[3].slice(1, -1) : '';
+        title = cap[3] ? cap[3].slice(1, -1) : "";
       }
 
       href = href.trim();
       if (/^</.test(href)) {
-        if (this.options.pedantic && !(/>$/.test(trimmedUrl))) {
+        if (this.options.pedantic && !/>$/.test(trimmedUrl)) {
           // pedantic allows starting angle bracket without ending angle bracket
           href = href.slice(1);
         } else {
           href = href.slice(1, -1);
         }
       }
-      return outputLink(cap, {
-        href: href ? href.replace(this.rules.inline._escapes, '$1') : href,
-        title: title ? title.replace(this.rules.inline._escapes, '$1') : title
-      }, cap[0]);
+      return outputLink(
+        cap,
+        {
+          href: href ? href.replace(this.rules.inline._escapes, "$1") : href,
+          title: title
+            ? title.replace(this.rules.inline._escapes, "$1")
+            : title,
+        },
+        cap[0]
+      );
     }
   }
 
   reflink(src, links) {
     let cap;
-    if ((cap = this.rules.inline.reflink.exec(src))
-        || (cap = this.rules.inline.nolink.exec(src))) {
-      let link = (cap[2] || cap[1]).replace(/\s+/g, ' ');
+    if (
+      (cap = this.rules.inline.reflink.exec(src)) ||
+      (cap = this.rules.inline.nolink.exec(src))
+    ) {
+      let link = (cap[2] || cap[1]).replace(/\s+/g, " ");
       link = links[link.toLowerCase()];
       if (!link || !link.href) {
         const text = cap[0].charAt(0);
         return {
-          type: 'text',
+          type: "text",
           raw: text,
-          text
+          text,
         };
       }
       return outputLink(cap, link, cap[0]);
     }
   }
 
-  emStrong(src, maskedSrc, prevChar = '') {
+  emStrong(src, maskedSrc, prevChar = "") {
     let match = this.rules.inline.emStrong.lDelim.exec(src);
     if (!match) return;
 
     if (match[3] && prevChar.match(/[\p{L}\p{N}]/u)) return; // _ can't be between two alphanumerics. \p{L}\p{N} includes non-english alphabet/numbers as well
 
-    const nextChar = match[1] || match[2] || '';
+    const nextChar = match[1] || match[2] || "";
 
-    if (!nextChar || (nextChar && (prevChar === '' || this.rules.inline.punctuation.exec(prevChar)))) {
+    if (
+      !nextChar ||
+      (nextChar &&
+        (prevChar === "" || this.rules.inline.punctuation.exec(prevChar)))
+    ) {
       const lLength = match[0].length - 1;
-      let rDelim, rLength, delimTotal = lLength, midDelimTotal = 0;
+      let rDelim,
+        rLength,
+        delimTotal = lLength,
+        midDelimTotal = 0;
 
-      const endReg = match[0][0] === '*' ? this.rules.inline.emStrong.rDelimAst : this.rules.inline.emStrong.rDelimUnd;
+      const endReg =
+        match[0][0] === "*"
+          ? this.rules.inline.emStrong.rDelimAst
+          : this.rules.inline.emStrong.rDelimUnd;
       endReg.lastIndex = 0;
 
       maskedSrc = maskedSrc.slice(-1 * src.length + lLength); // Bump maskedSrc to same section of string as src (move to lexer?)
 
       while ((match = endReg.exec(maskedSrc)) != null) {
-        rDelim = match[1] || match[2] || match[3] || match[4] || match[5] || match[6];
+        rDelim =
+          match[1] || match[2] || match[3] || match[4] || match[5] || match[6];
 
         if (!rDelim) continue; // matched the first alternative in rules.js (skip the * in __abc*abc__)
 
         rLength = rDelim.length;
 
-        if (match[3] || match[4]) { // found another Left Delim
+        if (match[3] || match[4]) {
+          // found another Left Delim
           delimTotal += rLength;
           continue;
-        } else if (match[5] || match[6]) { // either Left or Right Delim
+        } else if (match[5] || match[6]) {
+          // either Left or Right Delim
           if (lLength % 3 && !((lLength + rLength) % 3)) {
             midDelimTotal += rLength;
             continue; // CommonMark Emphasis Rules 9-10
@@ -585,22 +626,25 @@ module.exports = class Tokenizer {
         if (delimTotal > 0) continue; // Haven't found enough closing delimiters
 
         // If this is the last rDelimiter, remove extra characters. *a*** -> *a*
-        if (delimTotal + midDelimTotal - rLength <= 0 && !maskedSrc.slice(endReg.lastIndex).match(endReg)) {
+        if (
+          delimTotal + midDelimTotal - rLength <= 0 &&
+          !maskedSrc.slice(endReg.lastIndex).match(endReg)
+        ) {
           rLength = Math.min(rLength, rLength + delimTotal + midDelimTotal);
         }
 
         if (Math.min(lLength, rLength) % 2) {
           return {
-            type: 'em',
+            type: "em",
             raw: src.slice(0, lLength + match.index + rLength + 1),
-            text: src.slice(1, lLength + match.index + rLength)
+            text: src.slice(1, lLength + match.index + rLength),
           };
         }
         if (Math.min(lLength, rLength) % 2 === 0) {
           return {
-            type: 'strong',
+            type: "strong",
             raw: src.slice(0, lLength + match.index + rLength + 1),
-            text: src.slice(2, lLength + match.index + rLength - 1)
+            text: src.slice(2, lLength + match.index + rLength - 1),
           };
         }
       }
@@ -610,7 +654,7 @@ module.exports = class Tokenizer {
   codespan(src) {
     const cap = this.rules.inline.code.exec(src);
     if (cap) {
-      let text = cap[2].replace(/\n/g, ' ');
+      let text = cap[2].replace(/\n/g, " ");
       const hasNonSpaceChars = /[^ ]/.test(text);
       const hasSpaceCharsOnBothEnds = /^ /.test(text) && / $/.test(text);
       if (hasNonSpaceChars && hasSpaceCharsOnBothEnds) {
@@ -618,9 +662,9 @@ module.exports = class Tokenizer {
       }
       text = escape(text, true);
       return {
-        type: 'codespan',
+        type: "codespan",
         raw: cap[0],
-        text
+        text,
       };
     }
   }
@@ -629,8 +673,8 @@ module.exports = class Tokenizer {
     const cap = this.rules.inline.br.exec(src);
     if (cap) {
       return {
-        type: 'br',
-        raw: cap[0]
+        type: "br",
+        raw: cap[0],
       };
     }
   }
@@ -639,9 +683,9 @@ module.exports = class Tokenizer {
     const cap = this.rules.inline.del.exec(src);
     if (cap) {
       return {
-        type: 'del',
+        type: "del",
         raw: cap[0],
-        text: cap[2]
+        text: cap[2],
       };
     }
   }
@@ -650,37 +694,37 @@ module.exports = class Tokenizer {
     const cap = this.rules.inline.autolink.exec(src);
     if (cap) {
       let text, href;
-      if (cap[2] === '@') {
+      if (cap[2] === "@") {
         text = escape(this.options.mangle ? mangle(cap[1]) : cap[1]);
-        href = 'mailto:' + text;
+        href = "mailto:" + text;
       } else {
         text = escape(cap[1]);
         href = text;
       }
 
       return {
-        type: 'link',
+        type: "link",
         raw: cap[0],
         text,
         href,
         tokens: [
           {
-            type: 'text',
+            type: "text",
             raw: text,
-            text
-          }
-        ]
+            text,
+          },
+        ],
       };
     }
   }
 
   url(src, mangle) {
     let cap;
-    if (cap = this.rules.inline.url.exec(src)) {
+    if ((cap = this.rules.inline.url.exec(src))) {
       let text, href;
-      if (cap[2] === '@') {
+      if (cap[2] === "@") {
         text = escape(this.options.mangle ? mangle(cap[0]) : cap[0]);
-        href = 'mailto:' + text;
+        href = "mailto:" + text;
       } else {
         // do extended autolink path validation
         let prevCapZero;
@@ -689,24 +733,24 @@ module.exports = class Tokenizer {
           cap[0] = this.rules.inline._backpedal.exec(cap[0])[0];
         } while (prevCapZero !== cap[0]);
         text = escape(cap[0]);
-        if (cap[1] === 'www.') {
-          href = 'http://' + text;
+        if (cap[1] === "www.") {
+          href = "http://" + text;
         } else {
           href = text;
         }
       }
       return {
-        type: 'link',
+        type: "link",
         raw: cap[0],
         text,
         href,
         tokens: [
           {
-            type: 'text',
+            type: "text",
             raw: text,
-            text
-          }
-        ]
+            text,
+          },
+        ],
       };
     }
   }
@@ -716,14 +760,18 @@ module.exports = class Tokenizer {
     if (cap) {
       let text;
       if (inRawBlock) {
-        text = this.options.sanitize ? (this.options.sanitizer ? this.options.sanitizer(cap[0]) : escape(cap[0])) : cap[0];
+        text = this.options.sanitize
+          ? this.options.sanitizer
+            ? this.options.sanitizer(cap[0])
+            : escape(cap[0])
+          : cap[0];
       } else {
         text = escape(this.options.smartypants ? smartypants(cap[0]) : cap[0]);
       }
       return {
-        type: 'text',
+        type: "text",
         raw: cap[0],
-        text
+        text,
       };
     }
   }
